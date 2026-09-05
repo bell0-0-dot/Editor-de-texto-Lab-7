@@ -22,6 +22,10 @@ public class GUIEditorTexto extends JFrame {
 
     private File archivoActual = null;
 
+    // Colores personalizados
+    private final Color AZUL_OSCURO = new Color(26, 37, 48);
+    private final Color AZUL_ACCENT = new Color(44, 62, 80);
+
     public GUIEditorTexto() {
         setTitle("Editor de Texto - Grupo#4");
         setSize(900, 600);
@@ -36,19 +40,23 @@ public class GUIEditorTexto extends JFrame {
         areaTexto.setFont(new Font("Arial", Font.PLAIN, 12));
 
         JPanel panelEscribir = new JPanel(new GridBagLayout());
-        panelEscribir.setBackground(new Color(225, 225, 225));
+        panelEscribir.setBackground(new Color(220, 224, 230));
         areaTexto.setPreferredSize(new Dimension(650, 800));
         areaTexto.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Color.LIGHT_GRAY),
+                BorderFactory.createLineBorder(new Color(180, 185, 190)),
                 BorderFactory.createEmptyBorder(20, 20, 20, 20)
         ));
         panelEscribir.add(areaTexto);
         JScrollPane scrollenTexto = new JScrollPane(panelEscribir);
         add(scrollenTexto, BorderLayout.CENTER);
 
-        labelEstado = new JLabel("Palabras : 0");
+        labelEstado = new JLabel("Palabras: 0");
+        labelEstado.setForeground(Color.WHITE);
+        labelEstado.setFont(new Font("SansSerif", Font.BOLD, 12));
+
         JPanel panelEstado = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        panelEstado.setBorder(BorderFactory.createEtchedBorder());
+        panelEstado.setBackground(AZUL_OSCURO);
+        panelEstado.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
         panelEstado.add(labelEstado);
         add(panelEstado, BorderLayout.SOUTH);
 
@@ -59,7 +67,12 @@ public class GUIEditorTexto extends JFrame {
 
     private JMenuBar BarraMenu() {
         JMenuBar menu = new JMenuBar();
+        menu.setBackground(AZUL_OSCURO);
+        menu.setBorder(BorderFactory.createEmptyBorder(2, 5, 2, 5));
+
         JMenu menuArchivo = new JMenu("Archivo");
+        menuArchivo.setForeground(Color.WHITE);
+        menuArchivo.setFont(new Font("SansSerif", Font.BOLD, 12));
 
         JMenuItem nuevoItem = new JMenuItem("Nuevo");
         JMenuItem abrirItem = new JMenuItem("Abrir");
@@ -83,6 +96,12 @@ public class GUIEditorTexto extends JFrame {
     private JToolBar BarraHerramientas() {
         JToolBar herramientas = new JToolBar();
         herramientas.setFloatable(false);
+        herramientas.setBackground(AZUL_ACCENT);
+        herramientas.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+
+        JLabel lblFuente = new JLabel("Fuente: ");
+        lblFuente.setForeground(Color.WHITE);
+        lblFuente.setFont(new Font("SansSerif", Font.BOLD, 12));
 
         String[] arregloFuentes = GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames();
         Fuentes = new JComboBox<>(arregloFuentes);
@@ -104,14 +123,10 @@ public class GUIEditorTexto extends JFrame {
             }
         });
 
-        btnBOLD = new JToggleButton("B");
-        btnBOLD.setFont(btnBOLD.getFont().deriveFont(Font.BOLD));
-
-        btnITALIC = new JToggleButton("I");
-        btnITALIC.setFont(btnITALIC.getFont().deriveFont(Font.ITALIC));
-
-        btnSUBRAYAR = new JToggleButton("S");
-        btnTACHAR = new JToggleButton("T");
+        btnBOLD = crearBotonToggle("B", Font.BOLD);
+        btnITALIC = crearBotonToggle("I", Font.ITALIC);
+        btnSUBRAYAR = crearBotonToggle("S", Font.PLAIN);
+        btnTACHAR = crearBotonToggle("T", Font.PLAIN);
 
         btnBOLD.addActionListener(e -> {
             gestorFormato.aplicarNegrita(areaTexto);
@@ -133,7 +148,7 @@ public class GUIEditorTexto extends JFrame {
             actualizarEstadosYBorde();
         });
 
-        JButton btnColor = new JButton("Color");
+        JButton btnColor = crearBoton("Color");
         btnColor.addActionListener(e -> {
             Color color = JColorChooser.showDialog(this, "Color de fuente:", Color.BLACK);
             if (color != null) {
@@ -141,10 +156,10 @@ public class GUIEditorTexto extends JFrame {
             }
         });
 
-        JButton btnTabla = new JButton("Insertar Tabla");
+        JButton btnTabla = crearBoton("Insertar Tabla");
         btnTabla.addActionListener(e -> mostrarDialogoTabla());
 
-        herramientas.add(new JLabel("Fuente: "));
+        herramientas.add(lblFuente);
         herramientas.add(Fuentes);
         herramientas.addSeparator();
         herramientas.add(Tamanos);
@@ -159,6 +174,24 @@ public class GUIEditorTexto extends JFrame {
         herramientas.add(btnTabla);
 
         return herramientas;
+    }
+
+    private JToggleButton crearBotonToggle(String texto, int estilo) {
+        JToggleButton btn = new JToggleButton(texto);
+        btn.setFont(new Font("SansSerif", estilo, 12));
+        btn.setForeground(Color.WHITE);
+        btn.setBackground(AZUL_OSCURO);
+        btn.setFocusPainted(false);
+        return btn;
+    }
+
+    private JButton crearBoton(String texto) {
+        JButton btn = new JButton(texto);
+        btn.setFont(new Font("SansSerif", Font.BOLD, 12));
+        btn.setForeground(Color.WHITE);
+        btn.setBackground(AZUL_OSCURO);
+        btn.setFocusPainted(false);
+        return btn;
     }
 
     private void actualizarEstadosYBorde() {
