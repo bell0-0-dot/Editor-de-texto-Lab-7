@@ -1,7 +1,9 @@
 package editordetexto;
 
 import javax.swing.*;
+import javax.swing.text.AttributeSet;
 import javax.swing.text.StyleConstants;
+import javax.swing.text.StyledDocument;
 import java.awt.*;
 
 public class GUIEditorTexto extends JFrame {
@@ -9,7 +11,9 @@ public class GUIEditorTexto extends JFrame {
     private JComboBox<String> Fuentes;
     private JComboBox<Integer> Tamanos;
     private JToggleButton btnBOLD, btnITALIC, btnSUBRAYAR, btnTACHAR;
+    private JLabel labelEstado;
 
+    private final GestorFormato gestorFormato = new GestorFormato();
 
     public GUIEditorTexto() {
         setTitle("Editor de Texto - Grupo#4");
@@ -35,6 +39,14 @@ public class GUIEditorTexto extends JFrame {
         JScrollPane scrollenTexto = new JScrollPane(panelEscribir);
         add(scrollenTexto, BorderLayout.CENTER);
 
+        labelEstado = new JLabel("Listo | 0 palabras");
+        JPanel panelEstado = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        panelEstado.setBorder(BorderFactory.createEtchedBorder());
+        panelEstado.add(labelEstado);
+        add(panelEstado, BorderLayout.SOUTH);
+
+        areaTexto.addCaretListener(e -> actualizarEstadosYBorde());
+
         setVisible(true);
     }
 
@@ -42,11 +54,12 @@ public class GUIEditorTexto extends JFrame {
         JMenuBar menu = new JMenuBar();
         JMenu menuArchivo = new JMenu("Archivo");
 
-        JMenuItem nuevoItem = new  JMenu("Nuevo");
-        JMenuItem abrirItem = new  JMenuItem("Abrir");
-        JMenuItem guardarItem = new  JMenuItem("Guardar");
-        JMenuItem guardarComoItem = new  JMenuItem("Guardar como...");
+        JMenuItem nuevoItem = new JMenuItem("Nuevo");
+        JMenuItem abrirItem = new JMenuItem("Abrir");
+        JMenuItem guardarItem = new JMenuItem("Guardar");
+        JMenuItem guardarComoItem = new JMenuItem("Guardar como...");
 
+        nuevoItem.addActionListener(e -> areaTexto.setText(""));
         abrirItem.addActionListener(e -> abrirArchivo());
         guardarItem.addActionListener(e -> guardarArchivo());
 
@@ -67,35 +80,60 @@ public class GUIEditorTexto extends JFrame {
         Fuentes = new JComboBox<>(arregloFuentes);
         Fuentes.setSelectedItem("Arial");
         Fuentes.setMaximumSize(new Dimension(150, 30));
-        Fuentes.addActionListener(e -> aplicarFormato());
-
-        Integer[] arreglotamanos = {8, 9, 10, 11, 12, 14, 16, 18, 24, 36, 48, 72};
-        Tamanos = new JComboBox<>(arreglotamanos);
-        Tamanos.setSelectedItem(12);
-        Tamanos.setMaximumSize(new Dimension(60, 30));
-        Tamanos.addActionListener(e -> aplicarFormato());
-
-        btnBOLD = new JToggleButton("B");
-        btnBOLD.setFont(btnBOLD.getFont().deriveFont(Font.BOLD));
-        btnITALIC = new JToggleButton("I");
-        btnITALIC.setFont(btnITALIC.getFont().deriveFont(Font.ITALIC));
-        btnTACHAR = new JToggleButton("T");
-        btnSUBRAYAR = new JToggleButton("S");
-
-        btnBOLD.addActionListener(e -> aplicarFormato());
-        btnITALIC.addActionListener(e -> aplicarFormato());
-        btnSUBRAYAR.addActionListener(e -> aplicarFormato());
-        btnITALIC.addActionListener(e -> aplicarFormato());
-
-        JButton btnColor = new JButton("Color");
-        btnColor.addActionListener(e -> {
-            Color c = JColorChooser.showDialog(this, "Color de fuente:", Color.BLACK);
-            if (c != null) {
-                aplicarAtributo(StyleConstants.Foreground, c);
+        Fuentes.addActionListener(e -> {
+            if (Fuentes.getSelectedItem() != null) {
+                gestorFormato.aplicarFuente(areaTexto, (String) Fuentes.getSelectedItem());
             }
         });
 
-        JButton btnTabla = new JButton(" Insertar Tabla");
+        Integer[] arregloTamanos = {8, 9, 10, 11, 12, 14, 16, 18, 24, 36, 48, 72};
+        Tamanos = new JComboBox<>(arregloTamanos);
+        Tamanos.setSelectedItem(12);
+        Tamanos.setMaximumSize(new Dimension(60, 30));
+        Tamanos.addActionListener(e -> {
+            if (Tamanos.getSelectedItem() != null) {
+                gestorFormato.aplicarTamano(areaTexto, (Integer) Tamanos.getSelectedItem());
+            }
+        });
+
+        btnBOLD = new JToggleButton("B");
+        btnBOLD.setFont(btnBOLD.getFont().deriveFont(Font.BOLD));
+
+        btnITALIC = new JToggleButton("I");
+        btnITALIC.setFont(btnITALIC.getFont().deriveFont(Font.ITALIC));
+
+        btnSUBRAYAR = new JToggleButton("S");
+        btnTACHAR = new JToggleButton("T");
+
+        btnBOLD.addActionListener(e -> {
+            gestorFormato.aplicarNegrita(areaTexto);
+            actualizarEstadosYBorde();
+        });
+
+        btnITALIC.addActionListener(e -> {
+            gestorFormato.aplicarCursiva(areaTexto);
+            actualizarEstadosYBorde();
+        });
+
+        btnSUBRAYAR.addActionListener(e -> {
+            gestorFormato.aplicarSubrayado(areaTexto);
+            actualizarEstadosYBorde();
+        });
+
+        btnTACHAR.addActionListener(e -> {
+            gestorFormato.aplicarTachado(areaTexto);
+            actualizarEstadosYBorde();
+        });
+
+        JButton btnColor = new JButton("Color");
+        btnColor.addActionListener(e -> {
+            Color color = JColorChooser.showDialog(this, "Color de fuente:", Color.BLACK);
+            if (color != null) {
+                gestorFormato.aplicarColor(areaTexto, color);
+            }
+        });
+
+        JButton btnTabla = new JButton("Insertar Tabla");
         btnTabla.addActionListener(e -> mostrarDialogoTabla());
 
         herramientas.add(new JLabel("Fuente: "));
@@ -115,17 +153,76 @@ public class GUIEditorTexto extends JFrame {
         return herramientas;
     }
 
-    private void aplicarFormato(){}
+    private void actualizarEstadosYBorde() {
+        int inicio = areaTexto.getSelectionStart();
+        int fin = areaTexto.getSelectionEnd();
 
-    private void aplicarAtributo(Object clave, Object valor){}
+        btnBOLD.setSelected(gestorFormato.esNegritaActiva(areaTexto, inicio, fin));
+        btnITALIC.setSelected(gestorFormato.esCursivaActiva(areaTexto, inicio, fin));
+        btnSUBRAYAR.setSelected(gestorFormato.esSubrayadoActivo(areaTexto, inicio, fin));
+        btnTACHAR.setSelected(gestorFormato.esTachadoActivo(areaTexto, inicio, fin));
 
-    private void insertarComponenteTabla(int filas, int cols){}
+        StyledDocument doc = areaTexto.getStyledDocument();
+        int pos = (inicio == fin) ? Math.max(0, inicio - 1) : inicio;
+        AttributeSet attr = doc.getCharacterElement(pos).getAttributes();
 
-    private void mostrarDialogoTabla(){}
+        String fuenteActual = StyleConstants.getFontFamily(attr);
+        int tamanoActual = StyleConstants.getFontSize(attr);
 
-    private void abrirArchivo(){}
+        if (fuenteActual != null && !fuenteActual.equals(Fuentes.getSelectedItem())) {
+            Fuentes.setSelectedItem(fuenteActual);
+        }
 
-    private void guardarArchivo(){}
+        if (tamanoActual > 0 && !Integer.valueOf(tamanoActual).equals(Tamanos.getSelectedItem())) {
+            Tamanos.setSelectedItem(tamanoActual);
+        }
 
+        String texto = areaTexto.getText().trim();
+        int palabras = texto.isEmpty() ? 0 : texto.split("\\s+").length;
+        labelEstado.setText("Listo | " + palabras + " palabras");
+    }
 
+    private void mostrarDialogoTabla() {
+        JTextField campoFilas = new JTextField("2", 5);
+        JTextField campoCols = new JTextField("2", 5);
+
+        JPanel panel = new JPanel();
+        panel.add(new JLabel("Filas:"));
+        panel.add(campoFilas);
+        panel.add(Box.createHorizontalStrut(15));
+        panel.add(new JLabel("Columnas:"));
+        panel.add(campoCols);
+
+        int result = JOptionPane.showConfirmDialog(this, panel, "Insertar Tabla", JOptionPane.OK_CANCEL_OPTION);
+        if (result == JOptionPane.OK_OPTION) {
+            try {
+                int filas = Integer.parseInt(campoFilas.getText());
+                int cols = Integer.parseInt(campoCols.getText());
+                insertarComponenteTabla(filas, cols);
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(this, "Ingrese números válidos.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private void insertarComponenteTabla(int filas, int cols) {
+        JTable tabla = new JTable(filas, cols);
+        tabla.setRowHeight(25);
+        JScrollPane scrollTabla = new JScrollPane(tabla);
+        scrollTabla.setPreferredSize(new Dimension(400, Math.min(150, filas * 28 + 25)));
+
+        areaTexto.insertComponent(scrollTabla);
+    }
+
+    private void abrirArchivo() {
+        JFileChooser escogerArchivo = new JFileChooser();
+        if (escogerArchivo.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+        }
+    }
+
+    private void guardarArchivo() {
+        JFileChooser escogerArchivo = new JFileChooser();
+        if (escogerArchivo.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+        }
+    }
 }
