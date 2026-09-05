@@ -1,10 +1,13 @@
 package editordetexto;
 
+import persistencia.*;
+import excepciones.*;
+
 import javax.swing.*;
-import javax.swing.text.AttributeSet;
-import javax.swing.text.StyleConstants;
-import javax.swing.text.StyledDocument;
+import javax.swing.text.*;
 import java.awt.*;
+import java.io.File;
+import java.io.IOException;
 
 public class GUIEditorTexto extends JFrame {
     private JTextPane areaTexto;
@@ -14,6 +17,10 @@ public class GUIEditorTexto extends JFrame {
     private JLabel labelEstado;
 
     private final GestorFormato gestorFormato = new GestorFormato();
+    private final EdtWrite escritorBinario = new EdtWrite();
+    private final EdtRead lectorBinario = new EdtRead();
+
+    private File archivoActual = null;
 
     public GUIEditorTexto() {
         setTitle("Editor de Texto - Grupo#4");
@@ -39,7 +46,7 @@ public class GUIEditorTexto extends JFrame {
         JScrollPane scrollenTexto = new JScrollPane(panelEscribir);
         add(scrollenTexto, BorderLayout.CENTER);
 
-        labelEstado = new JLabel("Listo | 0 palabras");
+        labelEstado = new JLabel("Palabras : 0");
         JPanel panelEstado = new JPanel(new FlowLayout(FlowLayout.LEFT));
         panelEstado.setBorder(BorderFactory.createEtchedBorder());
         panelEstado.add(labelEstado);
@@ -59,9 +66,10 @@ public class GUIEditorTexto extends JFrame {
         JMenuItem guardarItem = new JMenuItem("Guardar");
         JMenuItem guardarComoItem = new JMenuItem("Guardar como...");
 
-        nuevoItem.addActionListener(e -> areaTexto.setText(""));
+        nuevoItem.addActionListener(e -> nuevoDocumento());
         abrirItem.addActionListener(e -> abrirArchivo());
         guardarItem.addActionListener(e -> guardarArchivo());
+        guardarComoItem.addActionListener(e -> guardarComoArchivo());
 
         menuArchivo.add(nuevoItem);
         menuArchivo.add(abrirItem);
@@ -179,7 +187,7 @@ public class GUIEditorTexto extends JFrame {
 
         String texto = areaTexto.getText().trim();
         int palabras = texto.isEmpty() ? 0 : texto.split("\\s+").length;
-        labelEstado.setText("Listo | " + palabras + " palabras");
+        labelEstado.setText("Palabras: " + palabras);
     }
 
     private void mostrarDialogoTabla() {
@@ -214,15 +222,118 @@ public class GUIEditorTexto extends JFrame {
         areaTexto.insertComponent(scrollTabla);
     }
 
+    private void nuevoDocumento() {
+        areaTexto.setText("");
+        archivoActual = null;
+        setTitle("Editor de Texto - Grupo#4");
+    }
+
     private void abrirArchivo() {
         JFileChooser escogerArchivo = new JFileChooser();
         if (escogerArchivo.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            File archivo = escogerArchivo.getSelectedFile();
+            try {
+                Documento doc = lectorBinario.abrir(archivo);
+                renderizarDocumento(doc);
+
+                archivoActual = archivo;
+                setTitle("Editor de Texto - " + archivoActual.getName());
+
+                JOptionPane.showMessageDialog(this, "Archivo cargado con éxito", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+            } catch (ExtensionInvalidaException | ArchivoCorruptoException | ArchivoTruncadoException ex) {
+                JOptionPane.showMessageDialog(this, ex.getMessage(), "Error de Archivo", JOptionPane.ERROR_MESSAGE);
+            } catch (IOException ex) {
+                JOptionPane.showMessageDialog(this, "Error de E/S al abrir el archivo: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
 
     private void guardarArchivo() {
+        if (archivoActual == null) {
+            guardarComoArchivo();
+        } else {
+            ejecutarGuardado(archivoActual);
+        }
+    }
+
+    private void guardarComoArchivo() {
         JFileChooser escogerArchivo = new JFileChooser();
         if (escogerArchivo.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            File archivo = escogerArchivo.getSelectedFile();
+            if (!archivo.getName().toLowerCase().endsWith(Constantes.EXTENSION)) {
+                archivo = new File(archivo.getAbsolutePath() + Constantes.EXTENSION);
+            }
+            ejecutarGuardado(archivo);
+        }
+    }
+
+    private void ejecutarGuardado(File archivo) {
+        try {
+            Documento doc = construirDocumentoDesdeGUI();
+            escritorBinario.guardar(doc, archivo);
+
+            archivoActual = archivo;
+            setTitle("Editor de Texto - " + archivoActual.getName());
+
+            JOptionPane.showMessageDialog(this, "Documento guardado correctamente", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+        } catch (ExtensionInvalidaException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Extensión inválida", JOptionPane.ERROR_MESSAGE);
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(this, "Error al guardar el archivo: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private Documento construirDocumentoDesdeGUI() {
+        Documento doc = new Documento();
+        StyledDocument styledDoc = areaTexto.getStyledDocument();
+        int offset = 0;
+        int length = styledDoc.getLength();
+
+        while (offset < length) {
+            Element elem = styledDoc.getCharacterElement(offset);
+            int start = elem.getStartOffset();
+            int end = elem.getEndOffset();
+            int fragmentLength = Math.min(end, length) - offset;
+
+            try {
+                String subTexto = styledDoc.getText(offset, fragmentLength);
+                AttributeSet attr = elem.getAttributes();
+                FormatoTexto fmt = gestorFormato.extraerFormato(attr);
+
+                doc.addBloque(new Fragmento(subTexto, fmt));
+            } catch (BadLocationException ignored) {}
+
+            offset += fragmentLength;
+        }
+
+        return doc;
+    }
+
+    private void renderizarDocumento(Documento doc) {
+        areaTexto.setText("");
+        StyledDocument styledDoc = areaTexto.getStyledDocument();
+
+        for (Object bloque : doc.getBloques()) {
+            if (bloque instanceof Fragmento) {
+                Fragmento frag = (Fragmento) bloque;
+                FormatoTexto fmt = frag.getFormato();
+
+                SimpleAttributeSet attrs = new SimpleAttributeSet();
+                StyleConstants.setForeground(attrs, fmt.getColor());
+                StyleConstants.setBold(attrs, fmt.isNegrita());
+                StyleConstants.setItalic(attrs, fmt.isCursiva());
+                StyleConstants.setUnderline(attrs, fmt.isSubrayado());
+                StyleConstants.setStrikeThrough(attrs, fmt.isTachado());
+                StyleConstants.setFontFamily(attrs, fmt.getFuente());
+                StyleConstants.setFontSize(attrs, fmt.getsize());
+
+                try {
+                    styledDoc.insertString(styledDoc.getLength(), frag.getTexto(), attrs);
+                } catch (BadLocationException ignored) {}
+            } else if (bloque instanceof Tabla) {
+                Tabla t = (Tabla) bloque;
+                insertarComponenteTabla(t.getFilas(), t.getColumnas());
+            }
         }
     }
 }
