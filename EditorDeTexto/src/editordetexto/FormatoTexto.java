@@ -104,7 +104,7 @@ public class FormatoTexto {
         return size;
     }
 
-    public void setTamaño(int size) {
+    public void setsize(int size) {
         this.size = size;
     }
     
