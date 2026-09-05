@@ -28,6 +28,3 @@ ESTRUCTURA BINARIA:
     4 bytes - columnas
     POR CADA CELDA (fila por fila):
       4 bytes - cantidad de fragmentos
-    POR CADA CELDA (fila por fila):
-      4 bytes -> cantidad de fragmentos
-      [cada fragmento serializado igual que arriba]
