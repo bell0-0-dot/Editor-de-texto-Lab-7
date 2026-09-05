@@ -4,8 +4,11 @@ import persistencia.*;
 import excepciones.*;
 
 import javax.swing.*;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.text.*;
 import java.awt.*;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
 import java.io.File;
 import java.io.IOException;
 
@@ -21,6 +24,8 @@ public class GUIEditorTexto extends JFrame {
     private final EdtRead lectorBinario = new EdtRead();
 
     private File archivoActual = null;
+
+    private JTextPane paneActivo;
 
     // Colores personalizados
     private final Color AZUL_OSCURO = new Color(26, 37, 48);
@@ -38,6 +43,7 @@ public class GUIEditorTexto extends JFrame {
 
         areaTexto = new JTextPane();
         areaTexto.setFont(new Font("Arial", Font.PLAIN, 12));
+        paneActivo = areaTexto;
 
         JPanel panelEscribir = new JPanel(new GridBagLayout());
         panelEscribir.setBackground(new Color(220, 224, 230));
@@ -61,6 +67,13 @@ public class GUIEditorTexto extends JFrame {
         add(panelEstado, BorderLayout.SOUTH);
 
         areaTexto.addCaretListener(e -> actualizarEstadosYBorde());
+        areaTexto.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusGained(FocusEvent e) {
+                paneActivo = areaTexto;
+                actualizarEstadosYBorde();
+            }
+        });
 
         setVisible(true);
     }
@@ -109,7 +122,7 @@ public class GUIEditorTexto extends JFrame {
         Fuentes.setMaximumSize(new Dimension(150, 30));
         Fuentes.addActionListener(e -> {
             if (Fuentes.getSelectedItem() != null) {
-                gestorFormato.aplicarFuente(areaTexto, (String) Fuentes.getSelectedItem());
+                gestorFormato.aplicarFuente(paneActivo, (String) Fuentes.getSelectedItem());
             }
         });
 
@@ -119,7 +132,7 @@ public class GUIEditorTexto extends JFrame {
         Tamanos.setMaximumSize(new Dimension(60, 30));
         Tamanos.addActionListener(e -> {
             if (Tamanos.getSelectedItem() != null) {
-                gestorFormato.aplicarTamano(areaTexto, (Integer) Tamanos.getSelectedItem());
+                gestorFormato.aplicarTamano(paneActivo, (Integer) Tamanos.getSelectedItem());
             }
         });
 
@@ -129,22 +142,22 @@ public class GUIEditorTexto extends JFrame {
         btnTACHAR = crearBotonToggle("T", Font.PLAIN);
 
         btnBOLD.addActionListener(e -> {
-            gestorFormato.aplicarNegrita(areaTexto);
+            gestorFormato.aplicarNegrita(paneActivo);
             actualizarEstadosYBorde();
         });
 
         btnITALIC.addActionListener(e -> {
-            gestorFormato.aplicarCursiva(areaTexto);
+            gestorFormato.aplicarCursiva(paneActivo);
             actualizarEstadosYBorde();
         });
 
         btnSUBRAYAR.addActionListener(e -> {
-            gestorFormato.aplicarSubrayado(areaTexto);
+            gestorFormato.aplicarSubrayado(paneActivo);
             actualizarEstadosYBorde();
         });
 
         btnTACHAR.addActionListener(e -> {
-            gestorFormato.aplicarTachado(areaTexto);
+            gestorFormato.aplicarTachado(paneActivo);
             actualizarEstadosYBorde();
         });
 
@@ -152,7 +165,7 @@ public class GUIEditorTexto extends JFrame {
         btnColor.addActionListener(e -> {
             Color color = JColorChooser.showDialog(this, "Color de fuente:", Color.BLACK);
             if (color != null) {
-                gestorFormato.aplicarColor(areaTexto, color);
+                gestorFormato.aplicarColor(paneActivo, color);
             }
         });
 
@@ -195,15 +208,15 @@ public class GUIEditorTexto extends JFrame {
     }
 
     private void actualizarEstadosYBorde() {
-        int inicio = areaTexto.getSelectionStart();
-        int fin = areaTexto.getSelectionEnd();
+        int inicio = paneActivo.getSelectionStart();
+        int fin = paneActivo.getSelectionEnd();
 
-        btnBOLD.setSelected(gestorFormato.esNegritaActiva(areaTexto, inicio, fin));
-        btnITALIC.setSelected(gestorFormato.esCursivaActiva(areaTexto, inicio, fin));
-        btnSUBRAYAR.setSelected(gestorFormato.esSubrayadoActivo(areaTexto, inicio, fin));
-        btnTACHAR.setSelected(gestorFormato.esTachadoActivo(areaTexto, inicio, fin));
+        btnBOLD.setSelected(gestorFormato.esNegritaActiva(paneActivo, inicio, fin));
+        btnITALIC.setSelected(gestorFormato.esCursivaActiva(paneActivo, inicio, fin));
+        btnSUBRAYAR.setSelected(gestorFormato.esSubrayadoActivo(paneActivo, inicio, fin));
+        btnTACHAR.setSelected(gestorFormato.esTachadoActivo(paneActivo, inicio, fin));
 
-        StyledDocument doc = areaTexto.getStyledDocument();
+        StyledDocument doc = paneActivo.getStyledDocument();
         int pos = (inicio == fin) ? Math.max(0, inicio - 1) : inicio;
         AttributeSet attr = doc.getCharacterElement(pos).getAttributes();
 
@@ -247,22 +260,40 @@ public class GUIEditorTexto extends JFrame {
     }
 
     private void insertarComponenteTabla(int filas, int cols) {
-        JTable tabla = new JTable(filas, cols);
-        tabla.setRowHeight(25);
-        JScrollPane scrollTabla = new JScrollPane(tabla);
-        scrollTabla.setPreferredSize(new Dimension(400, Math.min(150, filas * 28 + 25)));
+        TablaPanel panel = new TablaPanel(filas, cols, gestorFormato);
+        registrarFocoCeldas(panel);
+        areaTexto.insertComponent(panel);
+    }
 
-        areaTexto.insertComponent(scrollTabla);
+    private void registrarFocoCeldas(TablaPanel panel) {
+        JTextPane[][] celdas = panel.getCeldasUI();
+        for (JTextPane[] fila : celdas) {
+            for (JTextPane celda : fila) {
+                celda.addFocusListener(new FocusAdapter() {
+                    @Override
+                    public void focusGained(FocusEvent e) {
+                        paneActivo = celda;
+                        actualizarEstadosYBorde();
+                    }
+                });
+                celda.addCaretListener(e -> {
+                    if (paneActivo == celda) actualizarEstadosYBorde();
+                });
+            }
+        }
     }
 
     private void nuevoDocumento() {
         areaTexto.setText("");
+        paneActivo = areaTexto;
         archivoActual = null;
         setTitle("Editor de Texto - Grupo#4");
     }
 
     private void abrirArchivo() {
         JFileChooser escogerArchivo = new JFileChooser();
+        escogerArchivo.setFileFilter(new FileNameExtensionFilter("Documentos .edt", "edt"));
+
         if (escogerArchivo.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             File archivo = escogerArchivo.getSelectedFile();
             try {
@@ -291,6 +322,8 @@ public class GUIEditorTexto extends JFrame {
 
     private void guardarComoArchivo() {
         JFileChooser escogerArchivo = new JFileChooser();
+        escogerArchivo.setFileFilter(new FileNameExtensionFilter("Documentos .edt", "edt"));
+
         if (escogerArchivo.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             File archivo = escogerArchivo.getSelectedFile();
             if (!archivo.getName().toLowerCase().endsWith(Constantes.EXTENSION)) {
@@ -324,15 +357,21 @@ public class GUIEditorTexto extends JFrame {
 
         while (offset < length) {
             Element elem = styledDoc.getCharacterElement(offset);
-            int start = elem.getStartOffset();
+            AttributeSet attr = elem.getAttributes();
+            Object componente = attr.getAttribute(StyleConstants.ComponentAttribute);
+
+            if (componente instanceof TablaPanel) {
+                doc.addBloque(((TablaPanel) componente).getTabla());
+                offset = elem.getEndOffset();
+                continue;
+            }
+
             int end = elem.getEndOffset();
             int fragmentLength = Math.min(end, length) - offset;
 
             try {
                 String subTexto = styledDoc.getText(offset, fragmentLength);
-                AttributeSet attr = elem.getAttributes();
                 FormatoTexto fmt = gestorFormato.extraerFormato(attr);
-
                 doc.addBloque(new Fragmento(subTexto, fmt));
             } catch (BadLocationException ignored) {}
 
@@ -363,9 +402,12 @@ public class GUIEditorTexto extends JFrame {
                 try {
                     styledDoc.insertString(styledDoc.getLength(), frag.getTexto(), attrs);
                 } catch (BadLocationException ignored) {}
+
             } else if (bloque instanceof Tabla) {
-                Tabla t = (Tabla) bloque;
-                insertarComponenteTabla(t.getFilas(), t.getColumnas());
+                TablaPanel panel = new TablaPanel((Tabla) bloque, gestorFormato);
+                registrarFocoCeldas(panel);
+                areaTexto.setCaretPosition(styledDoc.getLength());
+                areaTexto.insertComponent(panel);
             }
         }
     }
